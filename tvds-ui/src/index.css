@@ -1,0 +1,29 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer components {
+
+}
+.css-m4idst .css-yngx58 {
+  @apply bg-gray-400
+}
+.ant-menu-title-content {
+  @apply flex items-center gap-2
+}
+.ant-menu-title-content > svg {
+  @apply text-xl
+}
+.ant-collapse-content-box .ant-col-8 {
+  @apply flex
+}
+.permission-collapse .ant-collapse-header {
+  @apply flex-row-reverse
+}
+.ant-collapse>.permission-collapse >.ant-collapse-header {
+  @apply pr-1
+}
+
+.ant-picker-ok button {
+  @apply bg-blue-500
+}

@@ -1,0 +1,251 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// Enum
+enum ViolationType {
+  NoHelmet
+  TripleRiding
+  SpeedViolation
+  WrongSide
+  NoSeatBelt
+  DistractedDriving
+  StopLineViolation
+  SignalJumping
+}
+
+enum SourceType {
+  ANPR
+  OVERVIEW
+}
+
+enum RefreshTokenType {
+  User
+  Detector
+  ThirdParty
+}
+
+enum ConfigType {
+  Host
+  Port
+  Salt
+  TrpcEndpoint
+  TrpcPlayGroundEndpoint
+  JwtTokenValidity
+  RefreshTokenValidityInMilliseconds
+
+  @@map("ConfigName")
+}
+
+enum VehicleType {
+  Bike
+  Auto
+  Car
+  Bus
+  MiniTruck
+  Truck
+}
+
+enum SyncStatus {
+  ADD
+  UPDATE
+  REMOVE
+  SYNCED
+}
+
+model Detection {
+  id                   BigInt
+  source               VideoSource @relation(fields: [sourceId], references: [id])
+  sourceId             Int         @map("source_id")
+  plateImage           String      @map("plate_image")
+  startAt              DateTime    @map("start_at")
+  endAt                DateTime?   @map("end_at")
+  vehicleNumber        String      @map("vehicle_number")
+  vehicleType          VehicleType @map("vehicle_type")
+  matchedVehicle       Vehicle?    @relation(fields: [matchedVehicleNumber], references: [vehicleNumber])
+  matchedVehicleNumber String?     @map("matched_vehicle_number")
+  createdAt            DateTime    @default(now()) @map("created_at")
+  modifiedAt           DateTime    @updatedAt @map("modified_at")
+  violations           Violation[]
+
+  @@id([id, sourceId])
+  @@index([startAt])
+  @@index([createdAt])
+  @@map("detection")
+}
+
+model Violation {
+  detection     Detection     @relation(fields: [detectionId, videoSourceId], references: [id, sourceId])
+  detectionId   BigInt        @map("detection_id")
+  at            DateTime
+  videoSourceId Int           @map("video_source_id")
+  violationType ViolationType @map("violation_type")
+  createdAt     DateTime      @default(now()) @map("created_at")
+  modifiedAt    DateTime      @updatedAt @map("modified_at")
+
+  @@id([detectionId, videoSourceId, violationType])
+  @@index([createdAt])
+  @@map("violation")
+}
+
+model Vehicle {
+  vehicleNumber String       @id @map("vehicle_number")
+  type          VehicleType?
+  color         String?
+  ownerName     String?      @map("owner_name")
+  contact       String?
+  email         String?
+  address       String?
+  remarks       String?
+  detections    Detection[]
+  vehicleTags   VehicleTag[]
+  createdAt     DateTime     @default(now()) @map("created_at")
+  modifiedAt    DateTime     @updatedAt @map("modified_at")
+
+  @@index([createdAt])
+  @@map("vehicle")
+}
+
+model VehicleTag {
+  vehicle       Vehicle  @relation(fields: [vehicleNumber], references: [vehicleNumber])
+  vehicleNumber String   @map("vehicle_number")
+  tag           TagType  @relation(fields: [tagId], references: [id])
+  tagId         Int      @map("tag_id")
+  isActive      Boolean  @default(true) @map("is_active")
+  createdAt     DateTime @default(now()) @map("created_at")
+  modifiedAt    DateTime @updatedAt @map("modified_at")
+
+  @@id([vehicleNumber, tagId])
+  @@index([createdAt])
+  @@map("vehicle_tag")
+}
+
+model TagType {
+  id          Int          @id @default(autoincrement())
+  name        String
+  vehicleTags VehicleTag[]
+
+  @@map("tag_type")
+}
+
+model VideoSource {
+  id                 Int                 @id @default(autoincrement())
+  url                String
+  relatedSources     VideoSource[]       @relation("related_source")
+  sources            VideoSource[]       @relation("related_source")
+  recorder           Recorder            @relation(fields: [recorderId], references: [id])
+  recorderId         Int                 @map("recorder_id")
+  images             Boolean
+  video              Boolean
+  recorderSync       SyncStatus          @map("recorder_sync")
+  prevUrl            String?             @map("prev_url")
+  prevImages         Boolean?            @map("prev_images")
+  prevVideo          Boolean?            @map("prev_video")
+  detector           Detector?           @relation(name: "sources", fields: [detectorId], references: [id])
+  detectorId         Int?                @map("detector_id")
+  detectorConfig     String?             @map("detection_config")
+  detection          Boolean
+  detectorSync       SyncStatus          @map("detector_sync")
+  prevDetector       Detector?           @relation(name: "prev_sources", fields: [prevDetectorId], references: [id])
+  prevDetectorId     Int?                @map("prev_detector_id")
+  prevDetectorConfig String?             @map("prev_detection_config")
+  prevDetection      Boolean?
+  storeViolations    Boolean             @map("store_violations")
+  notifyViolations   Boolean             @map("notify_violations")
+  storeTag           Boolean             @map("store_tag")
+  notifyTag          Boolean             @map("notify_tag")
+  storeMismatch      Boolean             @map("store_mismatch")
+  notifyMismatch     Boolean             @map("notify_mismatch")
+  storeAll           Boolean             @map("store_all")
+  notifyAll          Boolean             @map("notify_all")
+  name               String
+  latitude           Float
+  longitude          Float
+  location           String
+  position           String?
+  city               String?
+  createdAt          DateTime            @default(now()) @map("created_at")
+  modifiedAt         DateTime            @updatedAt @map("modified_at")
+  detections         Detection[]
+  videoSourceStatus  VideoSourceStatus[]
+  violationTypes     ViolationType[]
+
+  @@index([createdAt])
+  @@map("video_source")
+}
+
+model VideoSourceStatus {
+  id            Int          @id @default(autoincrement())
+  videoSource   VideoSource? @relation(fields: [videoSourceId], references: [id])
+  videoSourceId Int?         @map("video_source_id")
+  isActivated   Boolean      @map("is_activated")
+  createdAt     DateTime     @default(now()) @map("created_at")
+
+  @@index([createdAt])
+  @@map("video_source_status")
+}
+
+model Detector {
+  id          Int           @id @default(autoincrement())
+  name        String        @unique
+  url         String        @unique
+  isActive    Boolean       @map("is_active")
+  createdAt   DateTime      @default(now()) @map("created_at")
+  modifiedAt  DateTime      @updatedAt @map("modified_at")
+  sources     VideoSource[] @relation("sources")
+  prevSources VideoSource[] @relation("prev_sources")
+
+  @@index([createdAt])
+  @@map("detector")
+}
+
+model Recorder {
+  id          Int           @id @default(autoincrement())
+  name        String        @unique
+  url         String        @unique
+  url2        String        @unique
+  isActive    Boolean       @map("is_active")
+  createdAt   DateTime      @default(now()) @map("created_at")
+  modifiedAt  DateTime      @updatedAt @map("modified_at")
+  videoSource VideoSource[]
+
+  @@index([createdAt])
+  @@map("recorder")
+}
+
+model User {
+  name             String        @id
+  password         String
+  passwordChangeAt DateTime      @map("password_changed_at")
+  isActive         Boolean       @map("is_active")
+  createdAt        DateTime      @default(now()) @map("created_at")
+  modifiedAt       DateTime      @updatedAt @map("modified_at")
+  refreshToken     RefreshToken?
+
+  @@index([createdAt])
+  @@map("user")
+}
+
+model RefreshToken {
+  token      String           @id
+  user       User?            @relation(fields: [userName], references: [name])
+  userName   String?          @unique @map("user_name")
+  type       RefreshTokenType
+  expiresAt  DateTime?        @map("expires_at")
+  createdAt  DateTime         @default(now()) @map("created_at")
+  modifiedAt DateTime         @updatedAt @map("modified_at")
+
+  @@map("refresh_token")
+}
+
+model Config {
+  key   ConfigType @id
+  value String
+
+  @@map("config")
+}
